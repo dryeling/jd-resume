@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JD-简历智能匹配分析 | SpeedyJob 改进版</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh; padding: 20px;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        header {
+            text-align: center; color: white; margin-bottom: 30px;
+        }
+        header h1 { font-size: 2em; margin-bottom: 8px; }
+        header p { opacity: 0.9; font-size: 1.1em; }
+        .card {
+            background: white; border-radius: 16px; padding: 28px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1); margin-bottom: 24px;
+        }
+        .card h2 {
+            font-size: 1.2em; color: #333; margin-bottom: 16px;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .input-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        @media (max-width: 768px) { .input-row { grid-template-columns: 1fr; } }
+        .input-group { display: flex; flex-direction: column; }
+        .input-group label { font-weight: 600; color: #555; margin-bottom: 8px; font-size: 0.95em; }
+        textarea {
+            width: 100%; min-height: 220px; border: 2px solid #e0e0e0; border-radius: 10px;
+            padding: 14px; font-size: 14px; resize: vertical; transition: border-color 0.3s;
+            font-family: inherit; line-height: 1.6;
+        }
+        textarea:focus { outline: none; border-color: #667eea; }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2); color: white;
+            border: none; padding: 14px 48px; border-radius: 10px; font-size: 1.1em;
+            cursor: pointer; font-weight: 600; transition: transform 0.2s, box-shadow 0.2s;
+            display: block; margin: 20px auto 0;
+        }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(102,126,234,0.4); }
+        .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+        /* 结果区 */
+        #resultArea { display: none; }
+
+        /* 分数环 */
+        .score-section { text-align: center; margin-bottom: 24px; }
+        .score-ring {
+            width: 160px; height: 160px; margin: 0 auto 12px; position: relative;
+        }
+        .score-ring svg { transform: rotate(-90deg); }
+        .score-ring .bg { stroke: #e8e8e8; }
+        .score-ring .fg { stroke-linecap: round; transition: stroke-dashoffset 1s ease; }
+        .score-number {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            font-size: 2.5em; font-weight: 700; color: #333;
+        }
+        .match-level {
+            font-size: 1.2em; font-weight: 600; padding: 6px 20px;
+            border-radius: 20px; display: inline-block;
+        }
+        .level-excellent { background: #e8f5e9; color: #2e7d32; }
+        .level-good { background: #e3f2fd; color: #1565c0; }
+        .level-fair { background: #fff3e0; color: #e65100; }
+        .level-weak { background: #fce4ec; color: #c62828; }
+
+        /* 维度条 */
+        .dimension-bars { display: grid; gap: 14px; }
+        .dim-item label { font-size: 0.9em; color: #555; margin-bottom: 4px; display: block; }
+        .dim-bar-bg {
+            height: 10px; background: #eee; border-radius: 5px; overflow: hidden;
+        }
+        .dim-bar-fg {
+            height: 100%; border-radius: 5px; transition: width 0.8s ease;
+        }
+        .dim-score { float: right; font-size: 0.85em; font-weight: 600; color: #666; }
+
+        /* 关键词标签 */
+        .kw-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+        .kw-tag {
+            padding: 4px 12px; border-radius: 16px; font-size: 0.85em; font-weight: 500;
+        }
+        .kw-matched { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+        .kw-missing { background: #fce4ec; color: #c62828; border: 1px solid #ef9a9a; }
+
+        /* 建议列表 */
+        .suggestion-item {
+            border: 1px solid #e8e8e8; border-radius: 10px; padding: 16px;
+            margin-bottom: 12px; transition: box-shadow 0.2s;
+        }
+        .suggestion-item:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        .sug-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+        .sug-priority {
+            width: 28px; height: 28px; border-radius: 50%; display: flex;
+            align-items: center; justify-content: center; color: white;
+            font-size: 0.8em; font-weight: 700; flex-shrink: 0;
+        }
+        .priority-5 { background: #c62828; }
+        .priority-4 { background: #e65100; }
+        .priority-3 { background: #f9a825; }
+        .priority-2 { background: #2196f3; }
+        .priority-1 { background: #9e9e9e; }
+        .sug-title { font-weight: 600; color: #333; }
+        .sug-cat { font-size: 0.75em; padding: 2px 8px; border-radius: 4px; background: #f0f0f0; color: #666; }
+        .sug-desc { color: #555; font-size: 0.93em; line-height: 1.6; }
+        .sug-example {
+            margin-top: 10px; background: #f8f9fa; border-radius: 8px; padding: 12px;
+            font-size: 0.88em;
+        }
+        .sug-example .before { color: #999; text-decoration: line-through; }
+        .sug-example .after { color: #2e7d32; font-weight: 500; }
+
+        /* 优化简历 */
+        .optimized-resume {
+            background: #f8f9fa; border-radius: 10px; padding: 20px;
+            white-space: pre-wrap; font-size: 0.92em; line-height: 1.7;
+            max-height: 400px; overflow-y: auto; color: #333;
+        }
+
+        .loading { text-align: center; padding: 40px; color: #666; }
+        .loading .spinner {
+            width: 40px; height: 40px; border: 4px solid #e0e0e0;
+            border-top-color: #667eea; border-radius: 50%;
+            animation: spin 0.8s linear infinite; margin: 0 auto 16px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .sample-btn {
+            background: none; border: 1px solid #667eea; color: #667eea;
+            padding: 6px 16px; border-radius: 6px; cursor: pointer; font-size: 0.85em;
+            margin-left: 10px;
+        }
+        .sample-btn:hover { background: #667eea; color: white; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎯 JD-简历智能匹配分析</h1>
+            <p>基于 SpeedyJob 的改进 — 一站式匹配诊断 + 定向优化建议</p>
+        </header>
+
+        <!-- 输入区 -->
+        <div class="card">
+            <h2>📝 输入信息</h2>
+            <div class="input-row">
+                <div class="input-group">
+                    <label>简历内容 <button class="sample-btn" onclick="fillSampleResume()">填入示例</button></label>
+                    <textarea id="resumeInput" placeholder="请粘贴您的简历文本..."></textarea>
+                </div>
+                <div class="input-group">
+                    <label>目标职位 JD <button class="sample-btn" onclick="fillSampleJD()">填入示例</button></label>
+                    <textarea id="jdInput" placeholder="请粘贴目标职位描述 (Job Description)..."></textarea>
+                </div>
+            </div>
+            <button class="btn-primary" id="analyzeBtn" onclick="doAnalyze()">🔍 开始匹配分析</button>
+        </div>
+
+        <!-- 加载中 -->
+        <div class="card loading" id="loadingArea" style="display:none">
+            <div class="spinner"></div>
+            <p>正在进行智能匹配分析...</p>
+        </div>
+
+        <!-- 结果区 -->
+        <div id="resultArea">
+            <!-- 总分 -->
+            <div class="card">
+                <div class="score-section">
+                    <div class="score-ring">
+                        <svg width="160" height="160" viewBox="0 0 160 160">
+                            <circle class="bg" cx="80" cy="80" r="70" fill="none" stroke-width="12"/>
+                            <circle class="fg" id="scoreCircle" cx="80" cy="80" r="70" fill="none"
+                                stroke-width="12" stroke-dasharray="440" stroke-dashoffset="440"/>
+                        </svg>
+                        <div class="score-number" id="scoreNumber">0</div>
+                    </div>
+                    <div class="match-level" id="matchLevel">--</div>
+                </div>
+            </div>
+
+            <!-- 维度分析 -->
+            <div class="card">
+                <h2>📊 维度分析</h2>
+                <div class="dimension-bars" id="dimensionBars"></div>
+            </div>
+
+            <!-- 关键词匹配 -->
+            <div class="card">
+                <h2>🔑 关键词匹配</h2>
+                <p style="margin-bottom:8px;font-size:0.9em;color:#888">✅ 已匹配 &nbsp; ❌ 缺失</p>
+                <div class="kw-tags" id="keywordTags"></div>
+            </div>
+
+            <!-- 优化建议 -->
+            <div class="card">
+                <h2>💡 优化建议</h2>
+                <div id="suggestionList"></div>
+            </div>
+
+            <!-- 优化简历 -->
+            <div class="card">
+                <h2>📄 优化后简历预览</h2>
+                <div class="optimized-resume" id="optimizedResume"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

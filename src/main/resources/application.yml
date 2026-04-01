@@ -1,0 +1,12 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: jd-resume-matcher
+
+# AI 配置 (可选, 如有 OpenAI API Key 可启用真实 AI 分析)
+ai:
+  enabled: false
+  # openai-api-key: sk-xxx
+  # openai-base-url: https://api.openai.com/v1
